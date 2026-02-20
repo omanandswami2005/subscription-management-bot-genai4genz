@@ -61,13 +61,33 @@ class LLMService {
    */
   async extractIntent(userMessage, context = {}) {
     try {
-      const systemPrompt = `You are a subscription management assistant. Analyze the user's message and extract their intent.
-Respond with a JSON object containing:
-- action: one of "create_subscription", "update_subscription", "cancel_subscription", "view_subscriptions", "view_billing", "get_recommendations", "general_query"
-- parameters: object with relevant parameters (planId, subscriptionId, etc.)
-- confidence: number between 0 and 1
+      const systemPrompt = `You are an intent classifier for a subscription management system. Your ONLY job is to analyze the user's message and return a JSON object.
 
-Available plans: ${context.availablePlans?.map(p => `${p.id} (${p.name})`).join(', ') || 'Basic, Pro, Enterprise'}`;
+CRITICAL: You must ONLY respond with valid JSON. Do not include any other text, explanations, or markdown.
+
+Analyze the message and determine the user's intent. Return ONLY this JSON structure:
+{
+  "action": "<one of the actions below>",
+  "parameters": {},
+  "confidence": <0.0 to 1.0>
+}
+
+Available actions:
+- "view_subscriptions" - user wants to see their subscriptions (keywords: show, view, list, my subscriptions, what subscriptions)
+- "create_subscription" - user wants to subscribe to a plan (keywords: subscribe, sign up, get, buy, purchase)
+- "cancel_subscription" - user wants to cancel (keywords: cancel, unsubscribe, stop)
+- "view_billing" - user wants billing history (keywords: billing, payment, transactions, history, invoice)
+- "get_recommendations" - user wants plan suggestions (keywords: recommend, suggest, better plan, upgrade, downgrade)
+- "general_query" - anything else
+
+Available plans: ${context.availablePlans?.map(p => `${p.id} (${p.name})`).join(', ') || 'basic, pro, enterprise'}
+
+Examples:
+User: "show me my subscriptions" → {"action":"view_subscriptions","parameters":{},"confidence":0.95}
+User: "I want to subscribe to pro" → {"action":"create_subscription","parameters":{"planId":"pro"},"confidence":0.9}
+User: "what's my billing history" → {"action":"view_billing","parameters":{},"confidence":0.95}
+
+RESPOND WITH ONLY THE JSON OBJECT, NOTHING ELSE.`;
 
       const messages = [
         { role: 'user', content: userMessage }
@@ -75,12 +95,36 @@ Available plans: ${context.availablePlans?.map(p => `${p.id} (${p.name})`).join(
 
       const response = await this.generateResponse(messages, systemPrompt);
       
-      // Parse JSON response
+      console.log('LLM Intent Response:', response);
+      
+      // Try to extract JSON from response
       try {
+        // Try direct parse first
         const intent = JSON.parse(response);
         return intent;
       } catch (parseError) {
-        // If JSON parsing fails, return general query intent
+        // Try to extract JSON from markdown code blocks or text
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const intent = JSON.parse(jsonMatch[0]);
+            return intent;
+          } catch (e) {
+            console.error('Failed to parse extracted JSON:', e);
+          }
+        }
+        
+        // Fallback: try to detect intent from keywords
+        const lowerMessage = userMessage.toLowerCase();
+        if (lowerMessage.includes('subscription') || lowerMessage.includes('show') || lowerMessage.includes('view') || lowerMessage.includes('list') || lowerMessage.includes('my')) {
+          return {
+            action: 'view_subscriptions',
+            parameters: {},
+            confidence: 0.7
+          };
+        }
+        
+        // Default to general query
         return {
           action: 'general_query',
           parameters: {},

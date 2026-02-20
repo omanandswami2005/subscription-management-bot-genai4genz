@@ -55,8 +55,8 @@ class ChatInterface {
     // Clear input
     this.messageInput.value = '';
 
-    // Show loading
-    this.showLoading();
+    // Show typing indicator
+    this.showTypingIndicator();
 
     try {
       // Send to server
@@ -66,14 +66,14 @@ class ChatInterface {
         this.conversationHistory
       );
 
-      // Hide loading
-      this.hideLoading();
+      // Hide typing indicator
+      this.hideTypingIndicator();
 
       // Handle response
       this.handleResponse(response);
 
     } catch (error) {
-      this.hideLoading();
+      this.hideTypingIndicator();
       this.displayError(error.message);
     }
   }
@@ -112,7 +112,45 @@ class ChatInterface {
   }
 
   /**
-   * Show loading indicator
+   * Show typing indicator
+   */
+  showTypingIndicator() {
+    // Create typing indicator element
+    this.typingIndicator = document.createElement('div');
+    this.typingIndicator.className = 'message bot-message typing-indicator-message';
+    this.typingIndicator.innerHTML = `
+      <div class="message-content">
+        <div class="typing-indicator">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    `;
+    
+    this.chatMessages.appendChild(this.typingIndicator);
+    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    
+    // Disable input
+    this.messageInput.disabled = true;
+  }
+
+  /**
+   * Hide typing indicator
+   */
+  hideTypingIndicator() {
+    if (this.typingIndicator) {
+      this.typingIndicator.remove();
+      this.typingIndicator = null;
+    }
+    
+    // Enable input
+    this.messageInput.disabled = false;
+    this.messageInput.focus();
+  }
+
+  /**
+   * Show loading indicator (for quick actions)
    */
   showLoading() {
     this.loadingIndicator.style.display = 'block';
@@ -120,7 +158,7 @@ class ChatInterface {
   }
 
   /**
-   * Hide loading indicator
+   * Hide loading indicator (for quick actions)
    */
   hideLoading() {
     this.loadingIndicator.style.display = 'none';

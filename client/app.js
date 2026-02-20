@@ -29,7 +29,8 @@ actionButtons.forEach(button => {
     const action = button.dataset.action;
     const customerId = customerIdSelect.value;
 
-    chatInterface.showLoading();
+    // Show typing indicator
+    chatInterface.showTypingIndicator();
 
     try {
       let response;
@@ -82,11 +83,11 @@ actionButtons.forEach(button => {
           break;
       }
 
-      chatInterface.hideLoading();
+      chatInterface.hideTypingIndicator();
       chatInterface.displayMessage(message, 'bot');
 
     } catch (error) {
-      chatInterface.hideLoading();
+      chatInterface.hideTypingIndicator();
       chatInterface.displayError(error.message);
     }
   });

@@ -96,8 +96,58 @@ app.post('/api/chat', async (req, res, next) => {
     // Get available plans for context
     const availablePlans = await db.query('SELECT id, name, price, billing_cycle FROM plans');
 
-    // Extract intent using LLM
-    const intent = await llmService.extractIntent(message, { availablePlans });
+    // Simple keyword-based intent detection (runs first for reliability)
+    const lowerMessage = message.toLowerCase();
+    let intent = { action: 'general_query', parameters: {}, confidence: 0.5 };
+
+    // Check for subscription viewing keywords
+    if ((lowerMessage.includes('subscription') || lowerMessage.includes('plan')) && 
+        (lowerMessage.includes('show') || lowerMessage.includes('view') || 
+         lowerMessage.includes('list') || lowerMessage.includes('my') || 
+         lowerMessage.includes('what') || lowerMessage.includes('see') ||
+         lowerMessage.includes('have') || lowerMessage.includes('get'))) {
+      intent = { action: 'view_subscriptions', parameters: {}, confidence: 0.9 };
+    }
+    // Check for billing keywords
+    else if (lowerMessage.includes('billing') || lowerMessage.includes('payment') || 
+             lowerMessage.includes('transaction') || lowerMessage.includes('invoice') ||
+             (lowerMessage.includes('history') && !lowerMessage.includes('subscription'))) {
+      intent = { action: 'view_billing', parameters: {}, confidence: 0.9 };
+    }
+    // Check for recommendation keywords
+    else if (lowerMessage.includes('recommend') || lowerMessage.includes('suggest') ||
+             lowerMessage.includes('better plan') || lowerMessage.includes('upgrade') ||
+             lowerMessage.includes('downgrade')) {
+      intent = { action: 'get_recommendations', parameters: {}, confidence: 0.9 };
+    }
+    // Check for subscription creation keywords
+    else if ((lowerMessage.includes('subscribe') || lowerMessage.includes('sign up') || 
+              lowerMessage.includes('buy') || lowerMessage.includes('purchase') ||
+              lowerMessage.includes('get')) && 
+             (lowerMessage.includes('plan') || lowerMessage.includes('basic') || 
+              lowerMessage.includes('pro') || lowerMessage.includes('enterprise'))) {
+      intent = { action: 'create_subscription', parameters: {}, confidence: 0.8 };
+      
+      // Try to extract plan ID
+      if (lowerMessage.includes('basic')) intent.parameters.planId = 'basic';
+      else if (lowerMessage.includes('pro') && !lowerMessage.includes('enterprise')) intent.parameters.planId = 'pro';
+      else if (lowerMessage.includes('enterprise')) intent.parameters.planId = 'enterprise';
+    }
+    // Check for cancellation keywords
+    else if (lowerMessage.includes('cancel') || lowerMessage.includes('unsubscribe') || 
+             lowerMessage.includes('stop') || lowerMessage.includes('end')) {
+      intent = { action: 'cancel_subscription', parameters: {}, confidence: 0.8 };
+    }
+    // If no keyword match, try LLM (only for complex queries)
+    else if (GROQ_API_KEY) {
+      try {
+        intent = await llmService.extractIntent(message, { availablePlans });
+      } catch (error) {
+        console.error('LLM intent extraction failed, using keyword fallback:', error);
+      }
+    }
+
+    console.log('Detected intent:', intent);
 
     let response = '';
     let action = 'none';
@@ -173,15 +223,28 @@ app.post('/api/chat', async (req, res, next) => {
         break;
 
       default:
-        // General query - use LLM to generate response
+        // General query - use LLM to generate response with proper context
+        const customerSubs = await subscriptionManager.getCustomerSubscriptions(customerId);
+        const contextInfo = `You are a subscription management assistant helping customer ${customerId}.
+        
+Current customer subscriptions: ${customerSubs.length > 0 ? customerSubs.map(s => `${s.plan_name} ($${s.price}/${s.billing_cycle})`).join(', ') : 'None'}
+
+Available plans: ${availablePlans.map(p => `${p.name} ($${p.price}/${p.billing_cycle})`).join(', ')}
+
+You can help with:
+- Viewing subscriptions
+- Creating new subscriptions
+- Canceling subscriptions
+- Viewing billing history
+- Getting plan recommendations
+
+Provide helpful, concise responses. If the user asks about their subscriptions, tell them what they have.`;
+
         const messages = [
           ...conversationHistory,
           { role: 'user', content: message }
         ];
-        response = await llmService.generateResponse(
-          messages,
-          'You are a helpful subscription management assistant. Help customers with their subscription questions.'
-        );
+        response = await llmService.generateResponse(messages, contextInfo);
     }
 
     res.json({
