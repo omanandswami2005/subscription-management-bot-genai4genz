@@ -1,16 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subscription Management Chatbot</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <header>
             <h1>💬 Subscription Assistant</h1>
             <p>Manage your subscriptions with AI-powered chat</p>
+            <nav class="header-nav">
+                <a href="/docs" id="docsLink" class="header-docs-link">📖 View Docs</a>
+            </nav>
         </header>
 
         <div class="main-content">
@@ -43,13 +48,8 @@
 
                 <div class="chat-input-container">
                     <form id="chatForm">
-                        <input 
-                            type="text" 
-                            id="messageInput" 
-                            placeholder="Type your message..." 
-                            autocomplete="off"
-                            required
-                        >
+                        <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off"
+                            required>
                         <button type="submit" id="sendButton">Send</button>
                     </form>
                 </div>
@@ -67,6 +67,17 @@
                 <button class="action-btn" data-action="recommendations">
                     ✨ Get Recommendations
                 </button>
+
+                <div class="docs-divider"></div>
+
+                <a href="/docs" id="docsNavBtn" class="docs-btn">
+                    <span class="docs-btn-icon">📖</span>
+                    <span class="docs-btn-text">
+                        <strong>View Documentation</strong>
+                        <small>API, architecture & guides</small>
+                    </span>
+                    <span class="docs-btn-arrow">→</span>
+                </a>
             </div>
         </div>
 
@@ -84,4 +95,5 @@
     <script type="module" src="chatInterface.js"></script>
     <script type="module" src="app.js"></script>
 </body>
+
 </html>

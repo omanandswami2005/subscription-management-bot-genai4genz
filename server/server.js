@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 import DatabaseManager from './DatabaseManager.js';
 import { initializeSchema } from './schema.js';
@@ -33,6 +34,21 @@ app.use(express.json());
 
 // Serve static files from client directory
 app.use(express.static(path.join(__dirname, '../client')));
+
+// Docs UI route
+app.get('/docs', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/docs.html'));
+});
+
+// Serve individual markdown doc files for the docs UI
+app.get('/docs/:file', (req, res) => {
+  const safeName = path.basename(req.params.file);
+  if (!safeName.endsWith('.md')) return res.status(400).json({ error: 'Not a markdown file' });
+  const filePath = path.join(__dirname, '../docs', safeName);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Doc not found' });
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.sendFile(filePath);
+});
 
 // Initialize services
 let db, rateLimiter, llmService, subscriptionManager, billingManager, recommendationEngine;
@@ -214,12 +230,12 @@ Always be helpful and concise in your responses.`;
             response = "You don't have any subscriptions yet. Would you like to explore our plans?";
           } else {
             response = `You have ${subscriptions.length} subscription(s):\n\n` +
-                      subscriptions.map(s => 
-                        `📦 ${s.plan_name}\n` +
-                        `   Status: ${s.status}\n` +
-                        `   Price: $${s.price}/${s.billing_cycle}\n` +
-                        `   Next billing: ${new Date(s.next_billing_date).toLocaleDateString()}`
-                      ).join('\n\n');
+              subscriptions.map(s =>
+                `📦 ${s.plan_name}\n` +
+                `   Status: ${s.status}\n` +
+                `   Price: $${s.price}/${s.billing_cycle}\n` +
+                `   Next billing: ${new Date(s.next_billing_date).toLocaleDateString()}`
+              ).join('\n\n');
           }
           break;
 
@@ -231,12 +247,12 @@ Always be helpful and concise in your responses.`;
             response = "You don't have any billing history yet.";
           } else {
             response = `Here are your recent transactions:\n\n` +
-                      billing.slice(0, 5).map(b => 
-                        `💳 ${new Date(b.date).toLocaleDateString()}\n` +
-                        `   Amount: $${b.amount}\n` +
-                        `   Status: ${b.status}\n` +
-                        `   ${b.description}`
-                      ).join('\n\n');
+              billing.slice(0, 5).map(b =>
+                `💳 ${new Date(b.date).toLocaleDateString()}\n` +
+                `   Amount: $${b.amount}\n` +
+                `   Status: ${b.status}\n` +
+                `   ${b.description}`
+              ).join('\n\n');
           }
           break;
 
@@ -247,12 +263,12 @@ Always be helpful and concise in your responses.`;
             response = "No recommendations available at this time.";
           } else {
             response = `✨ Based on your usage, here are my recommendations:\n\n` +
-                      recommendations.map(r => 
-                        `📊 ${r.planName}\n` +
-                        `   ${r.reasoning}\n` +
-                        `   💰 ${r.costImplication}\n` +
-                        `   Benefits: ${r.benefits.join(', ')}`
-                      ).join('\n\n');
+              recommendations.map(r =>
+                `📊 ${r.planName}\n` +
+                `   ${r.reasoning}\n` +
+                `   💰 ${r.costImplication}\n` +
+                `   Benefits: ${r.benefits.join(', ')}`
+              ).join('\n\n');
           }
           break;
 
@@ -266,8 +282,8 @@ Always be helpful and concise in your responses.`;
             data = subscription;
             response = `Great! I've created your ${subscription.plan_name || 'subscription'}. Your subscription is now active.`;
           } else {
-            response = 'Which plan would you like to subscribe to? We have: ' + 
-                      availablePlans.map(p => `${p.name} ($${p.price}/${p.billing_cycle})`).join(', ');
+            response = 'Which plan would you like to subscribe to? We have: ' +
+              availablePlans.map(p => `${p.name} ($${p.price}/${p.billing_cycle})`).join(', ');
           }
           break;
 
@@ -282,8 +298,8 @@ Always be helpful and concise in your responses.`;
             if (subs.length === 0) {
               response = "You don't have any active subscriptions to cancel.";
             } else {
-              response = 'Which subscription would you like to cancel? ' + 
-                        subs.map(s => `${s.plan_name} (ID: ${s.id})`).join(', ');
+              response = 'Which subscription would you like to cancel? ' +
+                subs.map(s => `${s.plan_name} (ID: ${s.id})`).join(', ');
             }
           }
           break;
@@ -368,7 +384,7 @@ app.get('/api/recommendations/:customerId', async (req, res, next) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  
+
   res.status(err.status || 500).json({
     error: true,
     message: err.message || 'Internal server error',
@@ -379,15 +395,15 @@ app.use((err, req, res, next) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\nShutting down gracefully...');
-  
+
   if (rateLimiter) {
     rateLimiter.stop();
   }
-  
+
   if (db) {
     await db.close();
   }
-  
+
   process.exit(0);
 });
 

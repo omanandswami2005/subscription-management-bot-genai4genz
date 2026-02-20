@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation — Subscription Management Chatbot</title>
+  <meta name="description" content="Complete documentation for the Subscription Management Chatbot — API reference, architecture, deployment, testing, and unique features.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="/" class="brand">
+        <span class="brand-icon">💬</span>
+        <span class="brand-text">SubBot</span>
+      </a>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">✕</button>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Documentation sections">
+      <div class="nav-label">Documentation</div>
+      <ul id="navList">
+        <li>
+          <a href="#design" class="nav-item active" data-doc="design" id="nav-design">
+            <span class="nav-icon">🎨</span>
+            <span>Design Document</span>
+          </a>
+        </li>
+        <li>
+          <a href="#architecture" class="nav-item" data-doc="architecture" id="nav-architecture">
+            <span class="nav-icon">🏗️</span>
+            <span>Architecture</span>
+          </a>
+        </li>
+        <li>
+          <a href="#api-contract" class="nav-item" data-doc="api-contract" id="nav-api-contract">
+            <span class="nav-icon">🔌</span>
+            <span>API Contract</span>
+          </a>
+        </li>
+        <li>
+          <a href="#deployment" class="nav-item" data-doc="deployment" id="nav-deployment">
+            <span class="nav-icon">🚀</span>
+            <span>Deployment</span>
+          </a>
+        </li>
+        <li>
+          <a href="#testing" class="nav-item" data-doc="testing" id="nav-testing">
+            <span class="nav-icon">🧪</span>
+            <span>Testing Guide</span>
+          </a>
+        </li>
+        <li>
+          <a href="#features" class="nav-item" data-doc="features" id="nav-features">
+            <span class="nav-icon">✨</span>
+            <span>Unique Features</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="/" class="back-link">← Back to App</a>
+    </div>
+  </aside>
+
+  <!-- Mobile overlay -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- Main content -->
+  <div class="layout">
+    <!-- Top bar (mobile) -->
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn" aria-label="Open menu">☰</button>
+      <span class="topbar-title" id="topbarTitle">Design Document</span>
+      <a href="/" class="topbar-home" title="Back to App">🏠</a>
+    </header>
+
+    <main class="content" id="mainContent">
+      <div class="doc-container" id="docContainer">
+        <div class="loading-state" id="loadingState">
+          <div class="spinner-wrap">
+            <div class="loader-ring"></div>
+          </div>
+          <p>Loading documentation…</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="docs.js"></script>
+</body>
+</html>
