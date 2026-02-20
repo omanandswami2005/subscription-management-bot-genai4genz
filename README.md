@@ -5,12 +5,14 @@ An AI-powered subscription management system that enables customers to manage th
 ## ✨ Features
 
 - **Natural Language Interface**: Chat with an AI assistant to manage subscriptions
+- **Function Calling**: Uses OpenAI-style function calling for reliable intent detection
 - **Subscription Management**: Create, update, and cancel subscriptions conversationally
 - **Billing History**: View and track all billing transactions
 - **AI-Powered Recommendations**: Get personalized plan suggestions based on usage patterns
 - **Compressed Data Storage**: Efficient plan details storage using gzip compression
 - **Rate Limiting**: Built-in API protection (10 requests/minute per IP)
-- **Modern UI**: Clean, responsive chat interface
+- **Modern UI**: Clean, responsive chat interface with typing animations
+- **Groq LLM**: Powered by `llama-3.3-70b-versatile` with function calling support
 
 ## 🚀 Quick Start
 

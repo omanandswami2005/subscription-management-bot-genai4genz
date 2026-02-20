@@ -20,6 +20,48 @@ class LLMService {
   }
 
   /**
+   * Generate chat completion with function calling
+   * @param {Array} messages - Array of message objects
+   * @param {string} systemPrompt - System prompt for context
+   * @param {Array} tools - Available tools/functions
+   * @returns {Promise<Object>} Response with message and tool calls
+   */
+  async generateResponseWithTools(messages, systemPrompt = null, tools = []) {
+    const allMessages = systemPrompt 
+      ? [{ role: 'system', content: systemPrompt }, ...messages]
+      : messages;
+
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const completion = await this.client.chat.completions.create({
+          model: this.model,
+          messages: allMessages,
+          temperature: 0.7,
+          max_tokens: 1000,
+          tools: tools.length > 0 ? tools : undefined,
+          tool_choice: tools.length > 0 ? 'auto' : undefined
+        });
+
+        const choice = completion.choices[0];
+        return {
+          message: choice.message.content || '',
+          toolCalls: choice.message.tool_calls || [],
+          finishReason: choice.finish_reason
+        };
+      } catch (error) {
+        console.error(`LLM API attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === this.maxRetries) {
+          throw new Error('AI service temporarily unavailable. Please try again later.');
+        }
+
+        // Exponential backoff
+        await this.sleep(this.retryDelay * attempt);
+      }
+    }
+  }
+
+  /**
    * Generate chat completion with retry logic
    * @param {Array} messages - Array of message objects
    * @param {string} systemPrompt - System prompt for context

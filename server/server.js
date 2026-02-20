@@ -96,155 +96,204 @@ app.post('/api/chat', async (req, res, next) => {
     // Get available plans for context
     const availablePlans = await db.query('SELECT id, name, price, billing_cycle FROM plans');
 
-    // Simple keyword-based intent detection (runs first for reliability)
-    const lowerMessage = message.toLowerCase();
-    let intent = { action: 'general_query', parameters: {}, confidence: 0.5 };
-
-    // Check for subscription viewing keywords
-    if ((lowerMessage.includes('subscription') || lowerMessage.includes('plan')) && 
-        (lowerMessage.includes('show') || lowerMessage.includes('view') || 
-         lowerMessage.includes('list') || lowerMessage.includes('my') || 
-         lowerMessage.includes('what') || lowerMessage.includes('see') ||
-         lowerMessage.includes('have') || lowerMessage.includes('get'))) {
-      intent = { action: 'view_subscriptions', parameters: {}, confidence: 0.9 };
-    }
-    // Check for billing keywords
-    else if (lowerMessage.includes('billing') || lowerMessage.includes('payment') || 
-             lowerMessage.includes('transaction') || lowerMessage.includes('invoice') ||
-             (lowerMessage.includes('history') && !lowerMessage.includes('subscription'))) {
-      intent = { action: 'view_billing', parameters: {}, confidence: 0.9 };
-    }
-    // Check for recommendation keywords
-    else if (lowerMessage.includes('recommend') || lowerMessage.includes('suggest') ||
-             lowerMessage.includes('better plan') || lowerMessage.includes('upgrade') ||
-             lowerMessage.includes('downgrade')) {
-      intent = { action: 'get_recommendations', parameters: {}, confidence: 0.9 };
-    }
-    // Check for subscription creation keywords
-    else if ((lowerMessage.includes('subscribe') || lowerMessage.includes('sign up') || 
-              lowerMessage.includes('buy') || lowerMessage.includes('purchase') ||
-              lowerMessage.includes('get')) && 
-             (lowerMessage.includes('plan') || lowerMessage.includes('basic') || 
-              lowerMessage.includes('pro') || lowerMessage.includes('enterprise'))) {
-      intent = { action: 'create_subscription', parameters: {}, confidence: 0.8 };
-      
-      // Try to extract plan ID
-      if (lowerMessage.includes('basic')) intent.parameters.planId = 'basic';
-      else if (lowerMessage.includes('pro') && !lowerMessage.includes('enterprise')) intent.parameters.planId = 'pro';
-      else if (lowerMessage.includes('enterprise')) intent.parameters.planId = 'enterprise';
-    }
-    // Check for cancellation keywords
-    else if (lowerMessage.includes('cancel') || lowerMessage.includes('unsubscribe') || 
-             lowerMessage.includes('stop') || lowerMessage.includes('end')) {
-      intent = { action: 'cancel_subscription', parameters: {}, confidence: 0.8 };
-    }
-    // If no keyword match, try LLM (only for complex queries)
-    else if (GROQ_API_KEY) {
-      try {
-        intent = await llmService.extractIntent(message, { availablePlans });
-      } catch (error) {
-        console.error('LLM intent extraction failed, using keyword fallback:', error);
+    // Define available tools/functions for the LLM
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'view_subscriptions',
+          description: 'Get all subscriptions for the current customer. Use this when user asks to see, show, list, or view their subscriptions.',
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'view_billing_history',
+          description: 'Get billing history and transactions for the current customer. Use this when user asks about billing, payments, invoices, or transaction history.',
+          parameters: {
+            type: 'object',
+            properties: {
+              limit: {
+                type: 'number',
+                description: 'Maximum number of transactions to return (default: 10)'
+              }
+            },
+            required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_recommendations',
+          description: 'Get AI-powered plan recommendations based on customer usage. Use this when user asks for recommendations, suggestions, or better plans.',
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'create_subscription',
+          description: 'Create a new subscription for a plan. Use this when user wants to subscribe, sign up, or purchase a plan.',
+          parameters: {
+            type: 'object',
+            properties: {
+              planId: {
+                type: 'string',
+                description: `Plan ID to subscribe to. Available: ${availablePlans.map(p => p.id).join(', ')}`,
+                enum: availablePlans.map(p => p.id)
+              }
+            },
+            required: ['planId']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'cancel_subscription',
+          description: 'Cancel an existing subscription. Use this when user wants to cancel or unsubscribe.',
+          parameters: {
+            type: 'object',
+            properties: {
+              subscriptionId: {
+                type: 'string',
+                description: 'ID of the subscription to cancel'
+              }
+            },
+            required: ['subscriptionId']
+          }
+        }
       }
-    }
+    ];
 
-    console.log('Detected intent:', intent);
+    const systemPrompt = `You are a helpful subscription management assistant for customer ${customerId}.
+
+Available plans: ${availablePlans.map(p => `${p.name} (${p.id}) - $${p.price}/${p.billing_cycle}`).join(', ')}
+
+When the user asks about their subscriptions, billing, or wants recommendations, use the appropriate function.
+Always be helpful and concise in your responses.`;
+
+    const messages = [
+      ...conversationHistory,
+      { role: 'user', content: message }
+    ];
+
+    // Call LLM with function calling
+    const llmResponse = await llmService.generateResponseWithTools(messages, systemPrompt, tools);
+
+    console.log('LLM Response:', llmResponse);
 
     let response = '';
     let action = 'none';
     let data = {};
 
-    // Execute action based on intent
-    switch (intent.action) {
-      case 'create_subscription':
-        if (intent.parameters.planId) {
-          const subscription = await subscriptionManager.createSubscription(
-            customerId,
-            intent.parameters.planId
-          );
-          action = 'subscription_created';
-          data = subscription;
-          response = `Great! I've created your ${subscription.plan_name || 'subscription'}. Your subscription is now active.`;
-        } else {
-          response = 'Which plan would you like to subscribe to? We have: ' + 
-                    availablePlans.map(p => `${p.name} ($${p.price}/${p.billing_cycle})`).join(', ');
-        }
-        break;
+    // Check if LLM wants to call a function
+    if (llmResponse.toolCalls && llmResponse.toolCalls.length > 0) {
+      const toolCall = llmResponse.toolCalls[0];
+      const functionName = toolCall.function.name;
+      const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
 
-      case 'cancel_subscription':
-        if (intent.parameters.subscriptionId) {
-          const cancelled = await subscriptionManager.cancelSubscription(intent.parameters.subscriptionId);
-          action = 'subscription_cancelled';
-          data = cancelled;
-          response = `Your subscription has been cancelled. It will remain active until the end of your billing period.`;
-        } else {
-          const subs = await subscriptionManager.getCustomerSubscriptions(customerId);
-          if (subs.length === 0) {
-            response = "You don't have any active subscriptions to cancel.";
+      console.log('Function call:', functionName, functionArgs);
+
+      // Execute the requested function
+      switch (functionName) {
+        case 'view_subscriptions':
+          const subscriptions = await subscriptionManager.getCustomerSubscriptions(customerId);
+          data = { subscriptions };
+          if (subscriptions.length === 0) {
+            response = "You don't have any subscriptions yet. Would you like to explore our plans?";
           } else {
-            response = 'Which subscription would you like to cancel? ' + 
-                      subs.map(s => `${s.plan_name} (ID: ${s.id})`).join(', ');
+            response = `You have ${subscriptions.length} subscription(s):\n\n` +
+                      subscriptions.map(s => 
+                        `📦 ${s.plan_name}\n` +
+                        `   Status: ${s.status}\n` +
+                        `   Price: $${s.price}/${s.billing_cycle}\n` +
+                        `   Next billing: ${new Date(s.next_billing_date).toLocaleDateString()}`
+                      ).join('\n\n');
           }
-        }
-        break;
+          break;
 
-      case 'view_subscriptions':
-        const subscriptions = await subscriptionManager.getCustomerSubscriptions(customerId);
-        data = { subscriptions };
-        if (subscriptions.length === 0) {
-          response = "You don't have any subscriptions yet. Would you like to explore our plans?";
-        } else {
-          response = `You have ${subscriptions.length} subscription(s):\n` +
-                    subscriptions.map(s => 
-                      `- ${s.plan_name}: $${s.price}/${s.billing_cycle}, Status: ${s.status}`
-                    ).join('\n');
-        }
-        break;
+        case 'view_billing_history':
+          const limit = functionArgs.limit || 10;
+          const billing = await billingManager.getBillingHistory(customerId, limit);
+          data = { billing };
+          if (billing.length === 0) {
+            response = "You don't have any billing history yet.";
+          } else {
+            response = `Here are your recent transactions:\n\n` +
+                      billing.slice(0, 5).map(b => 
+                        `💳 ${new Date(b.date).toLocaleDateString()}\n` +
+                        `   Amount: $${b.amount}\n` +
+                        `   Status: ${b.status}\n` +
+                        `   ${b.description}`
+                      ).join('\n\n');
+          }
+          break;
 
-      case 'view_billing':
-        const billing = await billingManager.getBillingHistory(customerId, 10);
-        data = { billing };
-        if (billing.length === 0) {
-          response = "You don't have any billing history yet.";
-        } else {
-          response = `Here are your recent transactions:\n` +
-                    billing.slice(0, 5).map(b => 
-                      `- ${new Date(b.date).toLocaleDateString()}: $${b.amount} (${b.status})`
-                    ).join('\n');
-        }
-        break;
+        case 'get_recommendations':
+          const recommendations = await recommendationEngine.generateRecommendations(customerId);
+          data = { recommendations };
+          if (recommendations.length === 0) {
+            response = "No recommendations available at this time.";
+          } else {
+            response = `✨ Based on your usage, here are my recommendations:\n\n` +
+                      recommendations.map(r => 
+                        `📊 ${r.planName}\n` +
+                        `   ${r.reasoning}\n` +
+                        `   💰 ${r.costImplication}\n` +
+                        `   Benefits: ${r.benefits.join(', ')}`
+                      ).join('\n\n');
+          }
+          break;
 
-      case 'get_recommendations':
-        const recommendations = await recommendationEngine.generateRecommendations(customerId);
-        data = { recommendations };
-        response = `Based on your usage, here are my recommendations:\n` +
-                  recommendations.map(r => 
-                    `- ${r.planName}: ${r.reasoning} (${r.costImplication})`
-                  ).join('\n');
-        break;
+        case 'create_subscription':
+          if (functionArgs.planId) {
+            const subscription = await subscriptionManager.createSubscription(
+              customerId,
+              functionArgs.planId
+            );
+            action = 'subscription_created';
+            data = subscription;
+            response = `Great! I've created your ${subscription.plan_name || 'subscription'}. Your subscription is now active.`;
+          } else {
+            response = 'Which plan would you like to subscribe to? We have: ' + 
+                      availablePlans.map(p => `${p.name} ($${p.price}/${p.billing_cycle})`).join(', ');
+          }
+          break;
 
-      default:
-        // General query - use LLM to generate response with proper context
-        const customerSubs = await subscriptionManager.getCustomerSubscriptions(customerId);
-        const contextInfo = `You are a subscription management assistant helping customer ${customerId}.
-        
-Current customer subscriptions: ${customerSubs.length > 0 ? customerSubs.map(s => `${s.plan_name} ($${s.price}/${s.billing_cycle})`).join(', ') : 'None'}
+        case 'cancel_subscription':
+          if (functionArgs.subscriptionId) {
+            const cancelled = await subscriptionManager.cancelSubscription(functionArgs.subscriptionId);
+            action = 'subscription_cancelled';
+            data = cancelled;
+            response = `Your subscription has been cancelled. It will remain active until the end of your billing period.`;
+          } else {
+            const subs = await subscriptionManager.getCustomerSubscriptions(customerId);
+            if (subs.length === 0) {
+              response = "You don't have any active subscriptions to cancel.";
+            } else {
+              response = 'Which subscription would you like to cancel? ' + 
+                        subs.map(s => `${s.plan_name} (ID: ${s.id})`).join(', ');
+            }
+          }
+          break;
 
-Available plans: ${availablePlans.map(p => `${p.name} ($${p.price}/${p.billing_cycle})`).join(', ')}
-
-You can help with:
-- Viewing subscriptions
-- Creating new subscriptions
-- Canceling subscriptions
-- Viewing billing history
-- Getting plan recommendations
-
-Provide helpful, concise responses. If the user asks about their subscriptions, tell them what they have.`;
-
-        const messages = [
-          ...conversationHistory,
-          { role: 'user', content: message }
-        ];
-        response = await llmService.generateResponse(messages, contextInfo);
+        default:
+          response = llmResponse.message || "I'm not sure how to help with that.";
+      }
+    } else {
+      // No function call, use LLM's direct response
+      response = llmResponse.message || "I'm not sure how to help with that.";
     }
 
     res.json({
