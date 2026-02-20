@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Management Chatbot</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💬 Subscription Assistant</h1>
+            <p>Manage your subscriptions with AI-powered chat</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Customer Selection -->
+            <div class="customer-selector">
+                <label for="customerId">Customer:</label>
+                <select id="customerId">
+                    <option value="customer-1">Demo Customer 1</option>
+                    <option value="customer-2">Demo Customer 2</option>
+                    <option value="customer-3">Demo Customer 3</option>
+                </select>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="chat-container">
+                <div id="chatMessages" class="chat-messages">
+                    <div class="message bot-message">
+                        <div class="message-content">
+                            <p>Hello! I'm your subscription assistant. I can help you:</p>
+                            <ul>
+                                <li>Create or cancel subscriptions</li>
+                                <li>View your billing history</li>
+                                <li>Get personalized plan recommendations</li>
+                                <li>Answer questions about your subscriptions</li>
+                            </ul>
+                            <p>How can I help you today?</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <form id="chatForm">
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            placeholder="Type your message..." 
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" id="sendButton">Send</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3>Quick Actions</h3>
+                <button class="action-btn" data-action="subscriptions">
+                    📋 View Subscriptions
+                </button>
+                <button class="action-btn" data-action="billing">
+                    💳 Billing History
+                </button>
+                <button class="action-btn" data-action="recommendations">
+                    ✨ Get Recommendations
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+
+        <!-- Error Toast -->
+        <div id="errorToast" class="error-toast" style="display: none;"></div>
+    </div>
+
+    <script type="module" src="apiClient.js"></script>
+    <script type="module" src="chatInterface.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
