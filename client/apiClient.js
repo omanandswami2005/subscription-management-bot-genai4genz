@@ -2,7 +2,7 @@
  * APIClient handles all HTTP communication with the server
  */
 class APIClient {
-  constructor(baseUrl = 'http://localhost:3000') {
+  constructor(baseUrl = '') {
     this.baseUrl = baseUrl;
   }
 
