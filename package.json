@@ -1,0 +1,35 @@
+{
+  "name": "subscription-management-chatbot",
+  "version": "1.0.0",
+  "description": "AI-powered subscription management chatbot with compressed plan details and billing history",
+  "main": "server/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "seed": "node server/seedData.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
+  },
+  "keywords": [
+    "chatbot",
+    "subscription",
+    "ai",
+    "groq",
+    "llm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.7",
+    "openai": "^4.28.0",
+    "dotenv": "^16.4.5",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "fast-check": "^3.15.1",
+    "nock": "^13.5.1"
+  }
+}
