@@ -119,6 +119,26 @@ The seeded database includes three demo customers:
 └─────────────────────────────────────────┘
 ```
 
+### Function Calling Architecture
+
+The chatbot uses OpenAI-style function calling for reliable intent detection:
+
+**Available Functions:**
+1. `view_subscriptions` - Retrieves customer's active subscriptions
+2. `view_billing_history` - Shows billing transactions
+3. `get_recommendations` - Generates AI-powered plan suggestions
+4. `create_subscription` - Creates new subscription (requires planId)
+5. `cancel_subscription` - Cancels existing subscription (requires subscriptionId)
+
+**How it works:**
+1. User sends a message via chat
+2. LLM analyzes intent and decides which function(s) to call
+3. Server executes the function and retrieves data
+4. LLM formats the response naturally
+5. User sees formatted results in chat
+
+This approach ensures accurate intent detection and consistent responses compared to keyword-based parsing.
+
 ## 📁 Project Structure
 
 ```
@@ -181,6 +201,36 @@ Get AI-powered plan recommendations.
 
 ## 🧪 Testing
 
+### Manual Testing with curl
+
+Test the chat endpoint:
+```bash
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": "customer-1",
+    "message": "Show me my subscriptions",
+    "conversationHistory": []
+  }'
+```
+
+Test subscriptions endpoint:
+```bash
+curl http://localhost:3000/api/subscriptions/customer-1
+```
+
+Test billing history:
+```bash
+curl http://localhost:3000/api/billing/customer-1
+```
+
+Test recommendations:
+```bash
+curl http://localhost:3000/api/recommendations/customer-1
+```
+
+### Automated Tests
+
 Run tests:
 ```bash
 npm test
@@ -190,6 +240,20 @@ Run tests in watch mode:
 ```bash
 npm run test:watch
 ```
+
+### Verifying Function Calling
+
+Check server logs for these indicators:
+```
+LLM Response: {
+  message: '',
+  toolCalls: [ { id: 'xxx', type: 'function', function: [Object] } ],
+  finishReason: 'tool_calls'
+}
+Function call: view_subscriptions {}
+```
+
+If you see `toolCalls` in the response, function calling is working correctly.
 
 ## 🛡️ Rate Limiting
 
@@ -222,9 +286,23 @@ The API is protected with rate limiting:
 - Check your internet connection
 - Review server logs for API errors
 
+### Function calling not working
+- Check server logs for `Function call:` messages to verify functions are being invoked
+- Ensure `llama-3.3-70b-versatile` model is being used (supports function calling)
+- Look for `toolCalls` in LLM response logs
+
+### Recommendations parsing errors
+- The system automatically handles markdown code blocks in LLM responses
+- If you see JSON parsing errors, check server logs for the raw LLM response
+- Fallback recommendations are provided if parsing fails
+
 ### Rate limit errors
 - Wait 60 seconds between request bursts
 - Adjust RATE_LIMIT_MAX_REQUESTS in .env if needed
+
+### Inconsistent formatting
+- Both chat responses and button clicks now use the same formatting
+- Format includes: 📦 emoji, Status, Price, Next billing date
 
 ## 📝 Development
 

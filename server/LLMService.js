@@ -189,12 +189,19 @@ RESPOND WITH ONLY THE JSON OBJECT, NOTHING ELSE.`;
   async generateRecommendations(customerData, subscriptions, billingHistory) {
     try {
       const systemPrompt = `You are a subscription optimization expert. Analyze the customer's current subscriptions and billing history to provide personalized recommendations.
-Respond with a JSON array of recommendations, each containing:
-- planId: recommended plan ID
-- planName: plan name
-- reasoning: explanation of why this plan is recommended
-- potentialSavings: estimated savings (positive) or additional cost (negative)
-- benefits: array of key benefits`;
+
+CRITICAL: Respond with ONLY a valid JSON array. Do not include markdown code blocks, explanations, or any other text.
+
+Format:
+[
+  {
+    "planId": "plan_id_here",
+    "planName": "Plan Name",
+    "reasoning": "Why this plan is recommended",
+    "potentialSavings": 0,
+    "benefits": ["benefit1", "benefit2"]
+  }
+]`;
 
       const userMessage = `Customer has ${subscriptions.length} subscription(s):
 ${subscriptions.map(s => `- ${s.plan_name} ($${s.price}/${s.billing_cycle}), status: ${s.status}`).join('\n')}
@@ -209,12 +216,34 @@ Provide 1-2 recommendations for better plans or consolidation opportunities.`;
 
       const response = await this.generateResponse(messages, systemPrompt);
       
+      console.log('Recommendations raw response:', response);
+      
       try {
-        const recommendations = JSON.parse(response);
+        // Try to extract JSON from markdown code blocks
+        let jsonStr = response.trim();
+        
+        // Remove markdown code blocks if present
+        if (jsonStr.startsWith('```')) {
+          const match = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+          if (match) {
+            jsonStr = match[1].trim();
+          }
+        }
+        
+        const recommendations = JSON.parse(jsonStr);
         return Array.isArray(recommendations) ? recommendations : [recommendations];
       } catch (parseError) {
         console.error('Failed to parse recommendations:', parseError);
-        return [];
+        console.error('Raw response was:', response);
+        
+        // Return a default recommendation
+        return [{
+          planId: 'pro',
+          planName: 'Pro Plan',
+          reasoning: 'Based on your usage, the Pro plan offers better value',
+          potentialSavings: 0,
+          benefits: ['More features', 'Better support']
+        }];
       }
     } catch (error) {
       console.error('Generate recommendations error:', error);
